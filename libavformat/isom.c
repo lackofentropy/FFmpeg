@@ -59,6 +59,7 @@ const AVCodecTag ff_mp4_obj_type[] = {
     { AV_CODEC_ID_AC3         , 0xA5 },
     { AV_CODEC_ID_EAC3        , 0xA6 },
     { AV_CODEC_ID_DTS         , 0xA9 }, /* mp4ra.org */
+    { AV_CODEC_ID_VP9         , 0xC0 }, /* non standard, update when there is a standard value */
     { AV_CODEC_ID_TSCC2       , 0xD0 }, /* non standard, camtasia uses it */
     { AV_CODEC_ID_VORBIS      , 0xDD }, /* non standard, gpac uses it */
     { AV_CODEC_ID_DVD_SUBTITLE, 0xE0 }, /* non standard, see unsupported-embedded-subs-2.mp4 */
@@ -179,6 +180,8 @@ const AVCodecTag ff_codec_movvideo_tags[] = {
     { AV_CODEC_ID_H264, MKTAG('a', 'i', 'v', 'x') }, /* XAVC 4:2:2 10bit */
     { AV_CODEC_ID_H264, MKTAG('r', 'v', '6', '4') }, /* X-Com Radvision */
 
+    { AV_CODEC_ID_VP9,  MKTAG('v', 'p', '0', '9') }, /* VP9 */
+
     { AV_CODEC_ID_MPEG1VIDEO, MKTAG('m', '1', 'v', ' ') },
     { AV_CODEC_ID_MPEG1VIDEO, MKTAG('m', '1', 'v', '1') }, /* Apple MPEG-1 Camcorder */
     { AV_CODEC_ID_MPEG1VIDEO, MKTAG('m', 'p', 'e', 'g') }, /* MPEG */
@@ -269,6 +272,23 @@ const AVCodecTag ff_codec_movvideo_tags[] = {
     { AV_CODEC_ID_DXV, MKTAG('D', 'X', 'D', '3') },
     { AV_CODEC_ID_DXV, MKTAG('D', 'X', 'D', 'I') },
 
+    { AV_CODEC_ID_MAGICYUV, MKTAG('M', '8', 'R', 'G') },
+    { AV_CODEC_ID_MAGICYUV, MKTAG('M', '8', 'R', 'A') },
+    { AV_CODEC_ID_MAGICYUV, MKTAG('M', '8', 'G', '0') },
+    { AV_CODEC_ID_MAGICYUV, MKTAG('M', '8', 'Y', '0') },
+    { AV_CODEC_ID_MAGICYUV, MKTAG('M', '8', 'Y', '2') },
+    { AV_CODEC_ID_MAGICYUV, MKTAG('M', '8', 'Y', '4') },
+    { AV_CODEC_ID_MAGICYUV, MKTAG('M', '8', 'Y', 'A') },
+
+    { AV_CODEC_ID_SHEERVIDEO, MKTAG('S', 'h', 'r', '0') },
+    { AV_CODEC_ID_SHEERVIDEO, MKTAG('S', 'h', 'r', '1') },
+    { AV_CODEC_ID_SHEERVIDEO, MKTAG('S', 'h', 'r', '2') },
+    { AV_CODEC_ID_SHEERVIDEO, MKTAG('S', 'h', 'r', '3') },
+    { AV_CODEC_ID_SHEERVIDEO, MKTAG('S', 'h', 'r', '4') },
+    { AV_CODEC_ID_SHEERVIDEO, MKTAG('S', 'h', 'r', '5') },
+    { AV_CODEC_ID_SHEERVIDEO, MKTAG('S', 'h', 'r', '6') },
+    { AV_CODEC_ID_SHEERVIDEO, MKTAG('S', 'h', 'r', '7') },
+
     { AV_CODEC_ID_NONE, 0 },
 };
 
@@ -296,6 +316,7 @@ const AVCodecTag ff_codec_movaudio_tags[] = {
     { AV_CODEC_ID_MP3,             MKTAG('.', 'm', 'p', '3') },
     { AV_CODEC_ID_MP3,             0x6D730055                },
     { AV_CODEC_ID_NELLYMOSER,      MKTAG('n', 'm', 'o', 's') }, /* Flash Media Server */
+    { AV_CODEC_ID_NELLYMOSER,      MKTAG('N', 'E', 'L', 'L') }, /* Perian */
     { AV_CODEC_ID_PCM_ALAW,        MKTAG('a', 'l', 'a', 'w') },
     { AV_CODEC_ID_PCM_F32BE,       MKTAG('f', 'l', '3', '2') },
     { AV_CODEC_ID_PCM_F32LE,       MKTAG('f', 'l', '3', '2') },
@@ -482,7 +503,7 @@ int ff_mp4_read_dec_config_descr(AVFormatContext *fc, AVStream *st, AVIOContext 
         if (!len || (uint64_t)len > (1<<30))
             return -1;
         av_free(st->codecpar->extradata);
-        if ((ret = ff_get_extradata(st->codecpar, pb, len)) < 0)
+        if ((ret = ff_get_extradata(fc, st->codecpar, pb, len)) < 0)
             return ret;
         if (st->codecpar->codec_id == AV_CODEC_ID_AAC) {
             MPEG4AudioConfig cfg = {0};

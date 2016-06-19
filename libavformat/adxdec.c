@@ -94,7 +94,7 @@ static int adx_read_header(AVFormatContext *s)
     c->header_size = avio_rb16(s->pb) + 4;
     avio_seek(s->pb, -4, SEEK_CUR);
 
-    if (ff_get_extradata(par, s->pb, c->header_size) < 0)
+    if (ff_get_extradata(s, par, s->pb, c->header_size) < 0)
         return AVERROR(ENOMEM);
 
     if (par->extradata_size < 12) {
@@ -111,6 +111,7 @@ static int adx_read_header(AVFormatContext *s)
 
     par->codec_type  = AVMEDIA_TYPE_AUDIO;
     par->codec_id    = s->iformat->raw_codec_id;
+    par->bit_rate    = par->sample_rate * par->channels * BLOCK_SIZE * 8LL / BLOCK_SAMPLES;
 
     avpriv_set_pts_info(st, 64, BLOCK_SAMPLES, par->sample_rate);
 

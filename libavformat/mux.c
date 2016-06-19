@@ -309,6 +309,12 @@ FF_DISABLE_DEPRECATION_WARNINGS
 FF_ENABLE_DEPRECATION_WARNINGS
 #endif
 
+        /* update internal context from codecpar, old bsf api needs this
+         * FIXME: remove when autobsf uses new bsf API */
+        ret = avcodec_parameters_to_context(st->internal->avctx, st->codecpar);
+        if (ret < 0)
+            goto fail;
+
         if (!st->time_base.num) {
             /* fall back on the default timebase values */
             if (par->codec_type == AVMEDIA_TYPE_AUDIO && par->sample_rate)
@@ -418,7 +424,8 @@ FF_ENABLE_DEPRECATION_WARNINGS
     }
 
     if (s->oformat->init && (ret = s->oformat->init(s)) < 0) {
-        s->oformat->deinit(s);
+        if (s->oformat->deinit)
+            s->oformat->deinit(s);
         goto fail;
     }
 
@@ -466,6 +473,21 @@ static int init_pts(AVFormatContext *s)
     return 0;
 }
 
+static int write_header_internal(AVFormatContext *s)
+{
+    if (s->oformat->write_header) {
+        int ret = s->oformat->write_header(s);
+        if (ret >= 0 && s->pb && s->pb->error < 0)
+            ret = s->pb->error;
+        if (ret < 0)
+            return ret;
+        if (s->flush_packets && s->pb && s->pb->error >= 0 && s->flags & AVFMT_FLAG_FLUSH_PACKETS)
+            avio_flush(s->pb);
+    }
+    s->internal->header_written = 1;
+    return 0;
+}
+
 int avformat_write_header(AVFormatContext *s, AVDictionary **options)
 {
     int ret = 0;
@@ -473,19 +495,14 @@ int avformat_write_header(AVFormatContext *s, AVDictionary **options)
     if ((ret = init_muxer(s, options)) < 0)
         return ret;
 
-    if (s->oformat->write_header && !s->oformat->check_bitstream) {
-        ret = s->oformat->write_header(s);
-        if (ret >= 0 && s->pb && s->pb->error < 0)
-            ret = s->pb->error;
+    if (!s->oformat->check_bitstream) {
+        ret = write_header_internal(s);
         if (ret < 0)
-            return ret;
-        if (s->flush_packets && s->pb && s->pb->error >= 0 && s->flags & AVFMT_FLAG_FLUSH_PACKETS)
-            avio_flush(s->pb);
-        s->internal->header_written = 1;
+            goto fail;
     }
 
     if ((ret = init_pts(s)) < 0)
-        return ret;
+        goto fail;
 
     if (s->avoid_negative_ts < 0) {
         av_assert2(s->avoid_negative_ts == AVFMT_AVOID_NEG_TS_AUTO);
@@ -496,6 +513,11 @@ int avformat_write_header(AVFormatContext *s, AVDictionary **options)
     }
 
     return 0;
+
+fail:
+    if (s->oformat->deinit)
+        s->oformat->deinit(s);
+    return ret;
 }
 
 #define AV_PKT_FLAG_UNCODED_FRAME 0x2000
@@ -690,15 +712,10 @@ static int write_packet(AVFormatContext *s, AVPacket *pkt)
 
     did_split = av_packet_split_side_data(pkt);
 
-    if (!s->internal->header_written && s->oformat->write_header) {
-        ret = s->oformat->write_header(s);
-        if (ret >= 0 && s->pb && s->pb->error < 0)
-            ret = s->pb->error;
+    if (!s->internal->header_written) {
+        ret = write_header_internal(s);
         if (ret < 0)
             goto fail;
-        if (s->flush_packets && s->pb && s->pb->error >= 0 && s->flags & AVFMT_FLAG_FLUSH_PACKETS)
-            avio_flush(s->pb);
-        s->internal->header_written = 1;
     }
 
     if ((pkt->flags & AV_PKT_FLAG_UNCODED_FRAME)) {
@@ -1134,19 +1151,14 @@ int av_write_trailer(AVFormatContext *s)
             goto fail;
     }
 
-    if (!s->internal->header_written && s->oformat->write_header) {
-        ret = s->oformat->write_header(s);
-        if (ret >= 0 && s->pb && s->pb->error < 0)
-            ret = s->pb->error;
+    if (!s->internal->header_written) {
+        ret = write_header_internal(s);
         if (ret < 0)
             goto fail;
-        if (s->flush_packets && s->pb && s->pb->error >= 0 && s->flags & AVFMT_FLAG_FLUSH_PACKETS)
-            avio_flush(s->pb);
-        s->internal->header_written = 1;
     }
 
 fail:
-    if ((s->internal->header_written || !s->oformat->write_header) && s->oformat->write_trailer)
+    if (s->internal->header_written && s->oformat->write_trailer)
         if (ret >= 0) {
         ret = s->oformat->write_trailer(s);
         } else {

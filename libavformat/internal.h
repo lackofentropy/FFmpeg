@@ -401,7 +401,7 @@ int ff_add_param_change(AVPacket *pkt, int32_t channels,
  * Set the timebase for each stream from the corresponding codec timebase and
  * print it.
  */
-int ff_framehash_write_header(AVFormatContext *s, int version);
+int ff_framehash_write_header(AVFormatContext *s);
 
 /**
  * Read a transport packet from a media file.
@@ -522,7 +522,7 @@ int ff_alloc_extradata(AVCodecParameters *par, int size);
  * @param size size of extradata
  * @return >= 0 if OK, AVERROR_xxx on error
  */
-int ff_get_extradata(AVCodecParameters *par, AVIOContext *pb, int size);
+int ff_get_extradata(AVFormatContext *s, AVCodecParameters *par, AVIOContext *pb, int size);
 
 /**
  * add frame for rfps calculation.
